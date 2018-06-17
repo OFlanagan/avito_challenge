@@ -1,0 +1,27 @@
+---
+title: "Avito Main"
+output: html_notebook
+---
+
+This project aims to predict the probability of a sale based off of the contents of an advert
+```{r}
+library(tidyverse)
+```
+
+
+```{r change_data_format, echo = F, message = F}
+train <- read_csv("train.csv")
+test <- read_csv("test.csv")
+train %>% write_rds("train.rds")
+test %>% write_rds("test.rds")
+```
+
+This segment will take our raw text features and transform them into something useful. It will also involve some necessary exploration.
+
+```{r child = "initial_exploration_shaping.Rmd"}
+```
+
+
+```{r child = "initial_modelling.Rmd"}
+```
+
