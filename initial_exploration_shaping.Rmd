@@ -77,25 +77,30 @@ df %>% map( ~ length(unique(.x))) %>% as.data.frame()
 
 
 ```{r}
-df <- df %>% 
-  mutate(
-  region = region %>% factor(),
-  city = city %>% factor() %>%  fct_lump(),
-  parent_category_name = parent_category_name %>% factor(),
-  category_name = category_name %>%  factor(), #potentially lump,
-  param_1 = param_1 %>% factor() %>% fct_lump(),
-  param_2 = param_2 %>% factor() %>% fct_lump(),
-  param_3 = param_3 %>% factor() %>% fct_lump(),
-  title = title %>% factor() %>% fct_lump(),
-  description = description %>% factor() %>% fct_lump(),
-  #might want to lump price, otherwise need to centre and scale it
-  price = price %>% scale(center = mean(train$price),scale =sd(train$price)), #might want to bin price into factors later
-  item_seq_number = item_seq_number %>% factor() %>% fct_lump(),
-  activation_date = factor(activation_date),
-  user_type = user_type %>% factor(),
-  image_top_1 = image_top_1 %>% factor() %>% fct_lump()
-)
+# df <- df %>% 
+#   mutate(
+#   region = region %>% factor(),
+#   city = city %>% factor() %>%  fct_lump(n=20),
+#   parent_category_name = parent_category_name %>% factor(),
+#   category_name = category_name %>%  factor(), #potentially lump,
+#   param_1 = param_1 %>% factor() %>% fct_lump(n=20),
+#   param_2 = param_2 %>% factor() %>% fct_lump(n=20),
+#   param_3 = param_3 %>% factor() %>% fct_lump(n=20),
+#   title = title %>% factor() %>% fct_lump(n=20),
+#   description = description %>% factor() %>% fct_lump(n=20),
+#   #might want to lump price, otherwise need to centre and scale it
+#   #price = price %>% scale(center = mean(train$price),scale =sd(train$price)), #might want to bin price into factors later
+#   price = factor(cut(price,breaks=10),exclude = NULL),
+#   item_seq_number = item_seq_number %>% factor() %>% fct_lump(),
+#   activation_date = factor(activation_date),
+#   user_type = user_type %>% factor(),
+#   image_top_1 = image_top_1 %>% factor() %>% fct_lump()
+# )
 
+df %>% 
+  select(price) %>% 
+  filter(is.na(price)==F) %>%
+  mutate(price = factor(cut(price,breaks= c(-100,0,10,50,100,250,500,1000,10000,50000,1e6,max(df$price[is.na(df$price)==F]+1)),right = F,ordered_result = T))) %>% ungroup() %>% nrow()
 
 ```
 
@@ -118,3 +123,18 @@ mutate_train %>% write_rds("mutate_train")
 ```
 
 
+```{r}
+summary(mutate_train)
+```
+
+We will use only a small subset for initial experiments to ensure that our processing time will be manageable
+
+```{r}
+train_set <- mutate_train %>% 
+  select(-c(item_id, user_id, image, price))
+```
+
+```{r}
+lm(deal_probability ~ ., data = train_set)
+train_set %>% map( ~ .x %>% nlevels) %>% as.data.frame()
+```

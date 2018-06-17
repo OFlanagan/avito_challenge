@@ -3,7 +3,7 @@ title: "initial_modelling"
 output: html_document
 ---
 
-```{r}
+```{r, message=F}
 library(tidyverse)
 library(caret)
 mutate_train <- read_rds("mutate_train")
@@ -16,6 +16,12 @@ summary(mutate_train)
 We will use only a small subset for initial experiments to ensure that our processing time will be manageable
 
 ```{r}
-train_subset <- mutate_train %>% head(2500)
+train_set <- mutate_train %>% 
+  select(-c(item_id, user_id, image, price))
+```
+
+```{r}
+lm(deal_probability ~ ., data = train_set)
+train_set %>% map( ~ .x %>% nlevels) %>% as.data.frame()
 ```
 
