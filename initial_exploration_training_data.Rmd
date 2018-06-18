@@ -14,9 +14,10 @@ Initial exploration and shaping of the Avito data set, text features only. date 
 
 # Initial exploration
 ```{r}
+rm(list=ls())
 library(tidyverse)
 library(forcats)
-test <- read_rds("test.rds")
+train <- read_rds("train.rds")
 ```
 
 ###Data Description
@@ -89,25 +90,27 @@ mean(train$price,na.rm=T)
 
 Price is a problematic variable. It is a numeric variable with many missing values. It also has some fairly extreme values in its upper limits. That being said there are definitily a significant number of values above a million dollars and some above 10 million, I would guess houses. Imputing with the mean value here would be wrong as we would be imputing a mean of two very different product classes e.g. bike prices and house prices which would essentially be dominated by the house prices. Median imputation might work better and this is an easy first step. An alternative method would be to create a factor with bins for different price brackets and an NA bin. For now we will use the median imputation method
 
+For our other features we will include NA as a factor level
+
 ```{r}
 train <- train %>%
   mutate(
-  region = region %>% factor(),
-  city = city %>% factor() %>%  fct_lump(n=20),
-  parent_category_name = parent_category_name %>% factor(),
-  category_name = category_name %>%  factor(), #potentially lump,
-  param_1 = param_1 %>% factor() %>% fct_lump(n=20),
-  param_2 = param_2 %>% factor() %>% fct_lump(n=20),
-  param_3 = param_3 %>% factor() %>% fct_lump(n=20),
-  title = title %>% factor() %>% fct_lump(n=20),
-  description = description %>% factor() %>% fct_lump(n=20),
+  region = region %>% factor(exclude = NULL),
+  city = city %>% factor(exclude = NULL) %>%  fct_lump(n=20),
+  parent_category_name = parent_category_name %>% factor(exclude = NULL),
+  category_name = category_name %>%  factor(exclude = NULL), #potentially lump,
+  param_1 = param_1 %>% factor(exclude = NULL) %>% fct_lump(n=20),
+  param_2 = param_2 %>% factor(exclude = NULL) %>% fct_lump(n=20),
+  param_3 = param_3 %>% factor(exclude = NULL) %>% fct_lump(n=20),
+  title = title %>% factor(exclude = NULL) %>% fct_lump(n=20),
+  description = description %>% factor(exclude = NULL) %>% fct_lump(n=20),
   #might want to lump price, otherwise need to centre and scale it
   #price = price %>% scale(center = mean(train$price),scale =sd(train$price)), #might want to bin price into factors later
   #price = factor(cut(price,breaks=10),exclude = NULL),
-  item_seq_number = item_seq_number %>% factor() %>% fct_lump(n=20),
-  activation_date = factor(activation_date),
-  user_type = user_type %>% factor(),
-  image_top_1 = image_top_1 %>% factor() %>% fct_lump(n=20)
+  item_seq_number = item_seq_number %>% factor(exclude = NULL) %>% fct_lump(n=20),
+  activation_date = activation_date %>% factor(exclude = NULL),
+  user_type = user_type %>% factor(exclude = NULL),
+  image_top_1 = image_top_1 %>% factor(exclude = NULL) %>% fct_lump(n=20)
 )
 
 # df %>% 
@@ -142,3 +145,12 @@ model_1 <- list(model = lm_1, run_time = run_time)
 write_rds(model_1, "exploratory_model_1.rds")
 
 ```
+
+### Imputing missing prices
+We will simply impute the missing prices at this stage with the median. A better impute method might be to group by category and then impute the median for that category but we will leave this for now to allow us to move forward.
+```{r}
+train$price[is.na(train$price)]<- median(train$price,na.rm=T) 
+train %>% summary()
+train %>% write_rds("train_modelling1.rds")
+```
+

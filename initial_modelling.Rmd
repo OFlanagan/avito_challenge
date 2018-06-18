@@ -4,24 +4,31 @@ output: html_document
 ---
 
 ```{r, message=F}
+rm(list = ls())
 library(tidyverse)
 library(caret)
-mutate_train <- read_rds("mutate_train")
+train_df1 <- read_rds("train_modelling1.rds")
 ```
 
 ```{r}
-summary(mutate_train)
+summary(train_df1)
 ```
 
 We will use only a small subset for initial experiments to ensure that our processing time will be manageable
 
 ```{r}
-train_set <- mutate_train %>% 
-  select(-c(item_id, user_id, image, price))
+train_set <- train_df1 %>% 
+  select(-c(item_id, user_id, image))
+
+train_set %>% map( ~ .x %>% nlevels) %>% as.data.frame()
+sum(is.na(train_set))
 ```
 
+
+
 ```{r}
-lm(deal_probability ~ ., data = train_set)
-train_set %>% map( ~ .x %>% nlevels) %>% as.data.frame()
+
+
+
 ```
 
