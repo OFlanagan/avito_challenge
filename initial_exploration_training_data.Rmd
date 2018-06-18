@@ -1,0 +1,144 @@
+---
+title: "initial_exploration_training_data"
+output: html_document
+---
+
+---
+title: "initial_exploration_shaping"
+output: html_document
+---
+
+Initial exploration and shaping of the Avito data set, text features only. date 17/06/2018
+
+
+
+# Initial exploration
+```{r}
+library(tidyverse)
+library(forcats)
+test <- read_rds("test.rds")
+```
+
+###Data Description
+
+ * item_id - Ad id.  
+ * user_id - User id.
+ * region - Ad region.
+ * city - Ad city.
+ * parent_category_name - Top level ad category as classified by Avito's ad model.
+ * category_name - Fine grain ad category as classified by Avito's ad model.
+ * param_1 - Optional parameter from Avito's ad model.
+ * param_2 - Optional parameter from Avito's ad model.
+ * param_3 - Optional parameter from Avito's ad model.
+ * title - Ad title.
+ * description - Ad description.
+ * price - Ad price.
+ * item_seq_number - Ad sequential number for user.
+ * activation_date- Date ad was placed.
+ * user_type - User type.
+ * image - Id code of image. Ties to a jpg file in train_jpg. Not every ad has an image.
+ * image_top_1 - Avito's classification code for the image.
+ * deal_probability - The target variable. This is the likelihood that an ad actually sold something. It's not possible to verify every transaction with certainty, so this column's value can be any float from zero to one.
+
+First we will take a look inside the dataframe.
+```{r}
+glimpse(train)
+```
+
+We have imported the data using read_rds so all of our non-numeric data is of type chr. We will likely want to treat these as categorical data - for example the city and region are labels, not some string that we can extract data from. There are some interesting techniques we can potentially use to handle these but we will start by lumping.
+there are. We don't want to convert all of our features thoughtlessly though as some of the features are keys such as item_id, user_id and others.
+
+
+We should get an idea of the repetitiveness of the data set
+```{r}
+train %>% map(~ length(unique(.x)) / length(.x)) %>% as.data.frame()
+```
+The item id is completely unique, which is good. 
+
+###Interesting Questions
+Some interesting points are 
+
+ * user_id is not unique and so some user post multiple products
+ * title is not unique - whether this is good or not will be interesting.
+ * image and description are nearly unique, correlation between title and description would also be interesting. Is this just reposts? or copies of the original.
+ 
+ 
+#Merging and shaping 1
+This section will be an initial merging of the test and train dataframes
+```{r}
+#train_target <- train %>% select(item_id,deal_probability)
+#df <- train %>% select(-deal_probability) %>% rbind(test)
+```
+
+```{r}
+train %>% glimpse()
+```
+
+```{r}
+train %>% map( ~ length(unique(.x))) %>% as.data.frame()
+```
+
+
+###Price
+```{r}
+summary(train$price)
+train %>% ggplot(aes(log10(price))) + geom_histogram(bins = 100)
+median(train$price,na.rm=T)
+mean(train$price,na.rm=T)
+```
+
+Price is a problematic variable. It is a numeric variable with many missing values. It also has some fairly extreme values in its upper limits. That being said there are definitily a significant number of values above a million dollars and some above 10 million, I would guess houses. Imputing with the mean value here would be wrong as we would be imputing a mean of two very different product classes e.g. bike prices and house prices which would essentially be dominated by the house prices. Median imputation might work better and this is an easy first step. An alternative method would be to create a factor with bins for different price brackets and an NA bin. For now we will use the median imputation method
+
+```{r}
+train <- train %>%
+  mutate(
+  region = region %>% factor(),
+  city = city %>% factor() %>%  fct_lump(n=20),
+  parent_category_name = parent_category_name %>% factor(),
+  category_name = category_name %>%  factor(), #potentially lump,
+  param_1 = param_1 %>% factor() %>% fct_lump(n=20),
+  param_2 = param_2 %>% factor() %>% fct_lump(n=20),
+  param_3 = param_3 %>% factor() %>% fct_lump(n=20),
+  title = title %>% factor() %>% fct_lump(n=20),
+  description = description %>% factor() %>% fct_lump(n=20),
+  #might want to lump price, otherwise need to centre and scale it
+  #price = price %>% scale(center = mean(train$price),scale =sd(train$price)), #might want to bin price into factors later
+  #price = factor(cut(price,breaks=10),exclude = NULL),
+  item_seq_number = item_seq_number %>% factor() %>% fct_lump(n=20),
+  activation_date = factor(activation_date),
+  user_type = user_type %>% factor(),
+  image_top_1 = image_top_1 %>% factor() %>% fct_lump(n=20)
+)
+
+# df %>% 
+#   select(price) %>% 
+#   filter(is.na(price)==F) %>%
+#   mutate(price = factor(cut(price,breaks= c(-100,0,10,50,100,250,500,1000,10000,50000,1e6,max(df$price[is.na(df$price)==F]+1)),right = F,ordered_result = T))) %>% ungroup() %>% nrow()
+
+```
+
+```{r}
+train %>% summary()
+```
+
+We will use only a small subset for initial experiments to ensure that our processing time will be manageable
+
+```{r}
+train_set <-  train %>% 
+  select(-c(item_id, user_id, image, price))
+
+train_set %>% map( ~ .x %>% nlevels) %>% as.data.frame()
+
+```
+
+```{r}
+start <- Sys.time()
+lm_1 <- lm(deal_probability ~ ., data = train_set)
+end <- Sys.time()
+
+run_time <- end - start
+
+model_1 <- list(model = lm_1, run_time = run_time)
+write_rds(model_1, "exploratory_model_1.rds")
+
+```
