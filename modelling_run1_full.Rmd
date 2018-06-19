@@ -1,0 +1,84 @@
+---
+title: "modelling_run1_full"
+output: html_document
+---
+
+An initial modelling run after some experimentation. date 18/06/2018
+This uses the xgboost params from https://www.kaggle.com/kailex/xgb-text2vec-tfidf-0-2237/code
+
+
+
+# Initial exploration
+```{r}
+rm(list=ls())
+
+set.seed(18062018)
+library(tidyverse)
+library(forcats)
+library(xgboost)
+train <- read_rds("train.rds")
+test <- read_rds("test.rds")
+
+
+#Merging and shaping 1
+#This section will be an initial merging of the test and train dataframes
+
+tri <- 1:nrow(train)
+
+y <- train$deal_probability
+df <- train %>% select(-deal_probability) %>% rbind(test)
+
+#need better way of doing this
+df$price[is.na(df$price)] <- median(train$price,na.rm=T)
+rm(train);gc()
+
+df <- df %>%
+  select(-c(item_id,user_id,image)) %>% 
+  mutate(
+  region = region %>% factor(exclude = NULL),
+  city = city %>% factor(exclude = NULL) %>%  fct_lump(n=20),
+  parent_category_name = parent_category_name %>% factor(exclude = NULL),
+  category_name = category_name %>%  factor(exclude = NULL), #potentially lump,
+  param_1 = param_1 %>% factor(exclude = NULL) %>% fct_lump(n=20),
+  param_2 = param_2 %>% factor(exclude = NULL) %>% fct_lump(n=20),
+  param_3 = param_3 %>% factor(exclude = NULL) %>% fct_lump(n=20),
+  title = title %>% factor(exclude = NULL) %>% fct_lump(n=20),
+  description = description %>% factor(exclude = NULL) %>% fct_lump(n=20),
+  item_seq_number = item_seq_number %>% factor(exclude = NULL) %>% fct_lump(n=20),
+  activation_date = activation_date %>% factor(exclude = NULL),
+  user_type = user_type %>% factor(exclude = NULL),
+  image_top_1 = image_top_1 %>% factor(exclude = NULL) %>% fct_lump(n=20)
+)
+
+train_set <- df[tri,]
+dtest <- xgb.DMatrix(data = Matrix::sparse.model.matrix( ~ . -1, data = df[-tri,]))
+
+sample <- sample(1:nrow(train_set), size = floor(.75*nrow(train_set)), replace = F)
+
+dtrain <- xgb.DMatrix(data = Matrix::sparse.model.matrix(~ . -1, data = train_set[sample, ]), label = y[sample])
+dval <- xgb.DMatrix(data = Matrix::sparse.model.matrix(~ . -1, data = train_set[-sample, ]), label = y[-sample])
+cols <- colnames(df)
+
+rm(train_set)
+
+
+p <- list(objective = "reg:logistic",
+          booster = "gbtree",
+          eval_metric = "rmse",
+          nthread = 8,
+          eta = 0.05,
+          max_depth = 18,
+          min_child_weight = 11,
+          gamma = 0,
+          subsample = 0.8,
+          colsample_bytree = 0.7,
+          alpha = 2.25,
+          lambda = 0,
+          nrounds = 500)
+
+m_xgb <- xgb.train(p, dtrain, p$nrounds, list(val = dval), print_every_n = 10, early_stopping_rounds = 5)
+
+submission <- data.frame(item_id = test$item_id, deal_probability = predict(m_xgb,dtest))
+write_csv(submission, "modelling_run1_submission.csv")
+````
+
